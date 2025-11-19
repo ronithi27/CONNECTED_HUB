@@ -56,6 +56,26 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Serve static files from React build in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from the frontend build
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+  
+  // Handle React routing - send all non-API requests to React app
+  app.get('*', (req, res) => {
+    // Don't serve React app for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ message: 'API route not found' });
+    }
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  });
+} else {
+  // Development mode - just handle API 404s
+  app.use('/api/*', (req, res) => {
+    res.status(404).json({ message: 'API route not found' });
+  });
+}
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -63,11 +83,6 @@ app.use((err, req, res, next) => {
     message: 'Internal server error',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({ message: 'Route not found' });
 });
 
 const PORT = process.env.PORT || 5000;
