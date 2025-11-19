@@ -8,6 +8,9 @@ const api = axios.create({
   },
 });
 
+// Flag to prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+
 api.interceptors.request.use(
   (config) => config,
   (error) => Promise.reject(error)
@@ -17,12 +20,25 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    
+    // Don't retry refresh token requests to avoid infinite loops
+    if (originalRequest.url?.includes('/auth/refresh')) {
+      isRefreshing = false;
+      return Promise.reject(error);
+    }
+    
+    if (error.response?.status === 401 && !originalRequest._retry && !isRefreshing) {
       originalRequest._retry = true;
+      isRefreshing = true;
+      
       try {
         await api.post('/auth/refresh');
+        isRefreshing = false;
         return api(originalRequest);
       } catch (refreshError) {
+        isRefreshing = false;
+        // Clear any stored auth state and redirect to login
+        localStorage.removeItem('isAuthenticated');
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }

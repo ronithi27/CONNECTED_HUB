@@ -39,7 +39,7 @@ const SignupForm = () => {
     });
     
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/', { replace: true });
     } else {
       setError(result.message);
     }

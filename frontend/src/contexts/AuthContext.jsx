@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const refreshIntervalRef = useRef(null);
+  const authCheckRef = useRef(false);
 
   const logout = useCallback(async () => {
     try {
@@ -33,6 +34,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuthStatus = useCallback(async () => {
+    if (authCheckRef.current) return; // Prevent multiple simultaneous checks
+    authCheckRef.current = true;
+    
     try {
       const response = await authAPI.getProfile();
       if (response.data.user) {
@@ -40,9 +44,12 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
       }
     } catch (error) {
+      console.log('Auth check failed:', error.response?.status);
+      setUser(null);
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
+      authCheckRef.current = false;
     }
   }, []);
 
@@ -58,8 +65,10 @@ export const AuthProvider = ({ children }) => {
           await authAPI.refreshToken();
           console.log('✅ Token refreshed successfully');
         } catch (error) {
-          console.log('❌ Token refresh failed');
-          logout();
+          console.log('❌ Token refresh failed:', error.response?.status);
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            logout();
+          }
         }
       }, 10 * 60 * 1000);
     } else if (!isAuthenticated && refreshIntervalRef.current) {

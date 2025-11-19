@@ -19,7 +19,7 @@ const LoginForm = () => {
     const result = await login(formData);
     
     if (result.success) {
-      navigate('/dashboard');
+      navigate('/', { replace: true });
     } else {
       setError(result.message);
     }
