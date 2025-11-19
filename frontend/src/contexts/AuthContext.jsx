@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const refreshIntervalRef = useRef(null);
   const authCheckRef = useRef(false);
+  const mountedRef = useRef(true);
 
   const logout = useCallback(async () => {
     try {
@@ -34,28 +35,46 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAuthStatus = useCallback(async () => {
-    if (authCheckRef.current) return; // Prevent multiple simultaneous checks
+    if (authCheckRef.current || !mountedRef.current) return;
     authCheckRef.current = true;
+    console.log('🔍 Checking auth status...');
     
     try {
       const response = await authAPI.getProfile();
-      if (response.data.user) {
+      if (response.data.user && mountedRef.current) {
+        console.log('✅ User authenticated:', response.data.user.username);
         setUser(response.data.user);
         setIsAuthenticated(true);
       }
     } catch (error) {
-      console.log('Auth check failed:', error.response?.status);
-      setUser(null);
-      setIsAuthenticated(false);
+      // Auth check failed - user is not authenticated (this is normal)
+      console.log('ℹ️ User not authenticated (normal for login page)');
+      if (mountedRef.current) {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
       authCheckRef.current = false;
     }
   }, []);
 
   useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
+    // Only check auth status if we're not on the login page
+    const currentPath = window.location.pathname;
+    if (currentPath !== '/login') {
+      checkAuthStatus();
+    } else {
+      // On login page, just set loading to false
+      setLoading(false);
+    }
+    
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated && !refreshIntervalRef.current) {

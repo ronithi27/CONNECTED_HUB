@@ -27,6 +27,11 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
+    // Don't retry profile requests to avoid infinite loops during auth checks
+    if (originalRequest.url?.includes('/auth/profile')) {
+      return Promise.reject(error);
+    }
+    
     if (error.response?.status === 401 && !originalRequest._retry && !isRefreshing) {
       originalRequest._retry = true;
       isRefreshing = true;
@@ -37,9 +42,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         isRefreshing = false;
-        // Clear any stored auth state and redirect to login
-        localStorage.removeItem('isAuthenticated');
-        window.location.href = '/login';
+        // Don't redirect here - let the component handle it
         return Promise.reject(refreshError);
       }
     }
